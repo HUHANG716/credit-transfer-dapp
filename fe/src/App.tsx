@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./App.css";
 import Web3 from "web3";
-import courseRegistryArtifact from "./contracts/CourseRegistry.json";
-import institutionRegistryArtifact from "./contracts/InstitutionRegistry.json";
+import courseRegistryArtifact from "./artifacts/CourseRegistry.json";
+import institutionRegistryArtifact from "./artifacts/InstitutionRegistry.json";
 import { err, success, warn } from "./utils/alert";
 import { extractError } from "./utils/extractError";
 import { isEqualToCurrAddr } from "./utils/isEqualToCurrAddr";
@@ -61,7 +61,7 @@ function App() {
   const [selectedCourse, setSelectedCourse] = useState<Course>({ id: -1 } as any);
   const [anchorEl, setAnchorEl] = useState<Record<string, EventTarget & HTMLButtonElement>>({});
   const [IDexpanded, setIDExpanded] = useState<number>(-1);
-
+  const [value, setValue] = useState(0);
   const handleAcknowledge = (event: React.MouseEvent<HTMLButtonElement>, popoverId: string) => {
     if (Number(selectedCourse.id) === -1) {
       err("Please select a course first! ");
@@ -111,9 +111,9 @@ function App() {
       setCurrAccount(window.ethereum.selectedAddress);
 
       //create the contract instance
-      courseRegistryContract.current = new web3.current.eth.Contract(courseRegistryArtifact.abi, courseRegistryArtifact.networks["5777"].address);
+      courseRegistryContract.current = new web3.current.eth.Contract(courseRegistryArtifact.abi, (courseRegistryArtifact as any).networks[process.env.REACT_APP_NETWORK_ID as string].address);
 
-      institutionRegistryContract.current = new web3.current.eth.Contract(institutionRegistryArtifact.abi, institutionRegistryArtifact.networks["5777"].address);
+      institutionRegistryContract.current = new web3.current.eth.Contract(institutionRegistryArtifact.abi, (institutionRegistryArtifact.networks as any)[process.env.REACT_APP_NETWORK_ID as string].address);
 
       //get all institutions
       getAllInstitutions();
@@ -227,7 +227,6 @@ function App() {
       err(error.message);
     }
   };
-  const [value, setValue] = useState(0);
 
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
