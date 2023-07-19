@@ -1,5 +1,5 @@
 import React from "react";
-import { Select, MenuItem } from "@mui/material";
+
 type Props = {
   data: any;
   header: any;
@@ -31,7 +31,7 @@ const SelectTable = ({ emptyPlaceholder, data, header, secondData = [] }: Props)
       )}
       <tbody>
         {data?.map((course: any, index: number) => (
-          <tr>
+          <tr key={Number(course.id)}>
             <td
               style={{
                 textAlign: "center",

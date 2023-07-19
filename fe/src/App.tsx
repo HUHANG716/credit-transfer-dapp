@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./App.css";
 import Web3 from "web3";
-import courseRegistryArtifact from "./artifacts/CourseRegistry.json";
-import institutionRegistryArtifact from "./artifacts/InstitutionRegistry.json";
+import courseRegistryArtifact from "./contracts/CourseRegistry.json";
+import institutionRegistryArtifact from "./contracts/InstitutionRegistry.json";
 import { err, success, warn } from "./utils/alert";
 import { extractError } from "./utils/extractError";
 import { isEqualToCurrAddr } from "./utils/isEqualToCurrAddr";
-import { Select, MenuItem, Button, Popover, Tabs, Tab, TextField, Modal, Box, Link, CircularProgress, Pagination } from "@mui/material";
+import { Select, MenuItem, Button, Popover, Tabs, Tab, TextField, Modal, Box, Link, CircularProgress } from "@mui/material";
 import { TabPanel, a11yProps } from "./components/TabPanel";
 import SelectTable from "./components/SelectTable";
 import { create } from "ipfs-http-client";
@@ -16,13 +16,18 @@ export interface Course {
   owner: string;
   courseFileHash: string;
   courseName: string;
-  id: BigInt;
+  id: number;
+}
+interface Institution {
+  addr: string;
+  institutionName: string;
 }
 interface RegisterDto {
   courseName: string;
   courseFileHash: string;
 }
 type Address = string;
+const baseUrl = "http://localhost:3001/api/V1/";
 function App() {
   const courseRegistryContract = useRef<any>();
   const institutionRegistryContract = useRef<any>();
@@ -51,7 +56,8 @@ function App() {
     })
   );
   const [currAccount, setCurrAccount] = useState<string>("");
-  const [institutions, setInstitutions] = useState<string[]>([]);
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [insName, setInsName] = useState<string>("");
   const [allRegisteredCourses, setAllRegisteredCourses] = useState<Course[]>([]);
   const [allRegisteredCoursesByInstitution, setAllRegisteredCoursesByInstitution] = useState<Record<Address, Course[]>>({});
   const [courseName, setCourseName] = useState<string>("");
@@ -61,7 +67,7 @@ function App() {
   const [selectedCourse, setSelectedCourse] = useState<Course>({ id: -1 } as any);
   const [anchorEl, setAnchorEl] = useState<Record<string, EventTarget & HTMLButtonElement>>({});
   const [IDexpanded, setIDExpanded] = useState<number>(-1);
-  const [value, setValue] = useState(0);
+
   const handleAcknowledge = (event: React.MouseEvent<HTMLButtonElement>, popoverId: string) => {
     if (Number(selectedCourse.id) === -1) {
       err("Please select a course first! ");
@@ -111,12 +117,12 @@ function App() {
       setCurrAccount(window.ethereum.selectedAddress);
 
       //create the contract instance
-      courseRegistryContract.current = new web3.current.eth.Contract(courseRegistryArtifact.abi, (courseRegistryArtifact as any).networks[process.env.REACT_APP_NETWORK_ID as string].address);
+      courseRegistryContract.current = new web3.current.eth.Contract(courseRegistryArtifact.abi, courseRegistryArtifact.networks["5777"].address);
 
-      institutionRegistryContract.current = new web3.current.eth.Contract(institutionRegistryArtifact.abi, (institutionRegistryArtifact.networks as any)[process.env.REACT_APP_NETWORK_ID as string].address);
+      institutionRegistryContract.current = new web3.current.eth.Contract(institutionRegistryArtifact.abi, institutionRegistryArtifact.networks["5777"].address);
 
       //get all institutions
-      getAllInstitutions();
+      getInstitutions();
       //get all courses
       getCourses();
 
@@ -127,16 +133,18 @@ function App() {
     init();
   }, []);
   const registerInstitution = async () => {
+    if (!insName) return;
     try {
-      await institutionRegistryContract.current.methods.registerInstitution().send({
+      await institutionRegistryContract.current.methods.registerInstitution(insName).send({
         from: currAccount,
       });
       success("Institution registered successfully");
-      getAllInstitutions();
+      getInstitutions();
     } catch (error: any) {
       const result = extractError(error.message);
       result ? err(result) : err(error.message);
     }
+    setInsName("");
   };
   const registerCourse = async (registerDto: RegisterDto) => {
     const { courseName, courseFileHash } = registerDto;
@@ -160,35 +168,38 @@ function App() {
 
   const getCourses = async (from: number = 0, to: number = 999) => {
     try {
-      const courses: Course[] = await courseRegistryContract.current.methods.getCourses(from, to).call();
+      const courses: Course[] = await (await fetch(baseUrl + "courses?from=" + from + "&to=" + to)).json();
       setAllRegisteredCourses(courses);
     } catch (error: any) {
       err(error.message);
     }
   };
-  const getAllInstitutions = async () => {
+  const getInstitutions = async (from: number = 0, to: number = 99) => {
     try {
-      const institutions = await institutionRegistryContract.current.methods.getAllInstitutions().call();
-      setInstitutions(institutions.map((institution: string) => institution.toLowerCase()));
+      const institutions = await (await fetch(baseUrl + "institutions?from=" + from + "&to=" + to)).json();
+      console.log(institutions);
+
+      setInstitutions(institutions);
     } catch (error: any) {
       err(error.message);
     }
   };
 
-  const approveCourse = async (recognizingCourseId: BigInt, recognizedCourseId: BigInt) => {
+  const approveCourse = async (recognizingCourseId: number, recognizedCourseId: number) => {
     try {
       await courseRegistryContract.current.methods.approveCourse(recognizingCourseId, recognizedCourseId).send({
         from: currAccount,
       });
-      success("Course approved successfully");
+      success("Course recognizing request sent!");
     } catch (error: any) {
       err(extractError(error.message));
     }
   };
-  const getRecognizingCoursesByCourseId = async (courseId: BigInt) => {
+  const getRecognizedCoursesByCourseId = async (courseId: number) => {
     try {
-      const recognizingCourses = await courseRegistryContract.current.methods.getRecognizingCoursesByCourseId(courseId).call();
-      const _recognizingCourses = recognizingCourses.map((courseId: BigInt) => ({
+      const recognizingCourses = await (await fetch(baseUrl + "courses?recognizer=" + courseId)).json();
+
+      const _recognizingCourses = recognizingCourses.map((courseId: number) => ({
         id: courseId,
         courseName: allRegisteredCourses.find((course) => Number(course.id) === Number(courseId))?.courseName,
         owner: allRegisteredCourses.find((course) => Number(course.id) === Number(courseId))?.owner,
@@ -201,10 +212,10 @@ function App() {
       err(extractError(error.message));
     }
   };
-  const getRecognizedCoursesByCourseId = async (courseId: BigInt) => {
+  const getRecognizerCoursesByCourseId = async (courseId: number) => {
     try {
-      const recognizedCourses = await courseRegistryContract.current.methods.getRecognizedCoursesByCourseId(courseId).call();
-      const _recognizedCourses = recognizedCourses.map((courseId: BigInt) => ({
+      const recognizedCourses = await (await fetch(baseUrl + "courses?recognized=" + courseId)).json();
+      const _recognizedCourses = recognizedCourses.map((courseId: number) => ({
         id: courseId,
         courseName: allRegisteredCourses.find((course) => Number(course.id) === Number(courseId))?.courseName,
         owner: allRegisteredCourses.find((course) => Number(course.id) === Number(courseId))?.owner,
@@ -220,13 +231,14 @@ function App() {
 
   const getCoursesByInstitution = async (institutionAddr: Address) => {
     try {
-      const courses = await courseRegistryContract.current.methods.getCoursesByInstitution(institutionAddr, 0, 100).call();
+      const courses = await (await fetch(baseUrl + "courses?institutionAddr=" + institutionAddr)).json();
       setAllRegisteredCoursesByInstitution((prev) => ({ ...prev, [institutionAddr.toLowerCase()]: courses }));
       console.log(courses);
     } catch (error: any) {
       err(error.message);
     }
   };
+  const [value, setValue] = useState(0);
 
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
@@ -247,7 +259,7 @@ function App() {
       </div>
 
       <div>
-        {institutions.some((institution) => isEqualToCurrAddr(currAccount, institution)) ? (
+        {institutions.some((institution) => isEqualToCurrAddr(currAccount, institution.addr)) ? (
           <></>
         ) : (
           <div>
@@ -256,12 +268,25 @@ function App() {
                 margin: "10px",
                 color: "red",
                 fontWeight: "bold",
+                display: "flex",
+                justifyContent: "center",
+
+                alignItems: "center",
               }}>
               You have not registered as an institution yet!
             </div>
-            <Button variant="contained" onClick={registerInstitution}>
-              Register
-            </Button>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                width: "100%",
+              }}>
+              <TextField label="Institution Name" variant="standard" value={insName} onChange={(e) => setInsName(e.target.value)} type="text" />
+              <Button variant="contained" onClick={registerInstitution}>
+                Register
+              </Button>
+            </div>
           </div>
         )}
       </div>
@@ -271,9 +296,9 @@ function App() {
       <div className="table-container">
         <table>
           <tbody>
-            {institutions.map((institutionAddr, index) => (
+            {institutions.map((institution, index) => (
               <>
-                <tr className={index === IDexpanded ? "bottom-borderless" : ""} key={institutionAddr}>
+                <tr className={index === IDexpanded ? "bottom-borderless" : ""} key={institution.addr}>
                   <td
                     style={{
                       boxSizing: "border-box",
@@ -282,13 +307,30 @@ function App() {
                       justifyContent: "space-between",
                       alignItems: "center",
                     }}>
-                    {isEqualToCurrAddr(currAccount, institutionAddr) ? " You" : institutionAddr}
+                    <span
+                      style={{
+                        color: isEqualToCurrAddr(currAccount, institution.addr) ? "red" : "ActiveBorder",
+                      }}>
+                      <strong>Name: </strong>
+                      {institution.institutionName}
+                    </span>
+                    {isEqualToCurrAddr(currAccount, institution.addr) ? (
+                      <span
+                        style={{
+                          color: "red",
+                          fontWeight: 700,
+                        }}>
+                        You
+                      </span>
+                    ) : (
+                      institution.addr
+                    )}
                     <Button
                       variant="outlined"
                       size="small"
                       sx={{ width: "fit-content", m: 1, height: 30, fontWeight: "bold" }}
                       onClick={() => {
-                        getCoursesByInstitution(institutionAddr);
+                        getCoursesByInstitution(institution.addr);
                         setIDExpanded((prev) => (index === prev ? -1 : index));
                       }}>
                       View registered courses in this institution
@@ -296,77 +338,83 @@ function App() {
                   </td>
                 </tr>
                 <tr hidden={IDexpanded !== index}>
-                  <div
-                    className="table-container"
-                    style={{
-                      margin: "10px",
-                      // width: "1000px",
-                      border: "1px solid #000",
-                      minHeight: "50px",
-                    }}>
-                    <table>
-                      {allRegisteredCoursesByInstitution[institutionAddr]?.length === 0 ? (
-                        <div style={{ marginTop: "10px", color: "red", fontWeight: "bold", fontSize: "20px" }}>Haven't registered any course yet !</div>
-                      ) : (
-                        <>
-                          <thead>
-                            {["ID", "Course Name", "Publisher", "Courses recognized by this course", "Courses recognizing this course"].map((title) => (
-                              <th className="subtable-th">{title}</th>
+                  <td>
+                    <div
+                      className="table-container"
+                      style={{
+                        margin: "10px",
+                        // width: "1000px",
+                        border: "1px solid #000",
+                        minHeight: "50px",
+                      }}>
+                      <table>
+                        {allRegisteredCoursesByInstitution[institution.addr]?.length === 0 ? (
+                          <div style={{ marginTop: "10px", color: "red", fontWeight: "bold", fontSize: "20px" }}>Haven't registered any course yet !</div>
+                        ) : (
+                          <>
+                            <thead>
+                              <tr>
+                                {["ID", "Course Name", "Publisher", "Recognized", "Recognized by"].map((title) => (
+                                  <th key={title} className="subtable-th">
+                                    {title}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+
+                            {allRegisteredCoursesByInstitution[institution.addr]?.map((course, index) => (
+                              <tr key={Number(course.id)}>
+                                <td>{Number(course.id)}</td>
+                                <td>
+                                  <Link underline="always" href={getIPFSResourceUrl(course.courseFileHash)}>
+                                    {course.courseName}
+                                  </Link>
+                                </td>
+                                <td> {course.owner}</td>
+
+                                <td>
+                                  <Select
+                                    onSelect={(e) => {
+                                      e.preventDefault();
+                                    }}
+                                    value={-1}
+                                    sx={{ width: "fit-content", m: 1, height: 30 }}
+                                    displayEmpty
+                                    onOpen={() => getRecognizedCoursesByCourseId(course.id)}>
+                                    <MenuItem disabled value={-1}>
+                                      Expand to view
+                                    </MenuItem>
+                                    <SelectTable emptyPlaceholder="No course recognized yet" data={recognizingCourses[Number(course.id)]} header={["ID", "Name"]} secondData={recognizingCourses[Number(course.id)]} />
+                                  </Select>
+                                </td>
+                                <td>
+                                  <Select
+                                    onSelect={(e) => {
+                                      e.preventDefault();
+                                    }}
+                                    value={-1}
+                                    sx={{
+                                      width: "fit-content",
+                                      m: 1,
+                                      height: 30,
+                                    }}
+                                    displayEmpty
+                                    onOpen={(e) => {
+                                      getRecognizerCoursesByCourseId(course.id);
+                                    }}>
+                                    <MenuItem disabled value={-1}>
+                                      Expand to view
+                                    </MenuItem>
+                                    <SelectTable emptyPlaceholder="No course recognize this course" data={recognizedCourses[Number(course.id)]} header={["ID", "Name"]} secondData={recognizedCourses[Number(course.id)]} />
+                                  </Select>
+                                </td>
+                              </tr>
                             ))}
-                          </thead>
-
-                          {allRegisteredCoursesByInstitution[institutionAddr]?.map((course, index) => (
-                            <tr key={Number(course.id)}>
-                              <td>{Number(course.id)}</td>
-                              <td>
-                                <Link underline="always" href={getIPFSResourceUrl(course.courseFileHash)}>
-                                  {course.courseName}
-                                </Link>
-                              </td>
-                              <td> {course.owner}</td>
-
-                              <td>
-                                <Select
-                                  onSelect={(e) => {
-                                    e.preventDefault();
-                                  }}
-                                  value={-1}
-                                  sx={{ width: "fit-content", m: 1, height: 30 }}
-                                  displayEmpty
-                                  onOpen={() => getRecognizingCoursesByCourseId(course.id)}>
-                                  <MenuItem disabled value={-1}>
-                                    Expand to view all courses
-                                  </MenuItem>
-                                  <SelectTable emptyPlaceholder="No course recognized yet" data={recognizingCourses[Number(course.id)]} header={["ID", "Name"]} secondData={recognizingCourses[Number(course.id)]} />
-                                </Select>
-                              </td>
-                              <td>
-                                <Select
-                                  onSelect={(e) => {
-                                    e.preventDefault();
-                                  }}
-                                  value={-1}
-                                  sx={{
-                                    width: "fit-content",
-                                    m: 1,
-                                    height: 30,
-                                  }}
-                                  displayEmpty
-                                  onOpen={(e) => {
-                                    getRecognizedCoursesByCourseId(course.id);
-                                  }}>
-                                  <MenuItem disabled value={-1}>
-                                    Expand to view all courses
-                                  </MenuItem>
-                                  <SelectTable emptyPlaceholder="No course recognize this course" data={recognizedCourses[Number(course.id)]} header={["ID", "Name"]} secondData={recognizedCourses[Number(course.id)]} />
-                                </Select>
-                              </td>
-                            </tr>
-                          ))}
-                        </>
-                      )}
-                    </table>
-                  </div>
+                          </>
+                        )}
+                      </table>
+                    </div>
+                  </td>
                 </tr>
               </>
             ))}
@@ -507,7 +555,7 @@ function App() {
             onChange={(e) => {
               const id = Number(e.target.value);
               const course = allRegisteredCoursesByInstitution[currAccount].find((course) => Number(course.id) === id);
-              getRecognizingCoursesByCourseId(BigInt(id));
+              getRecognizedCoursesByCourseId(id);
               setSelectedCourse(course as any);
             }}>
             <MenuItem disabled value={-1}>
@@ -548,8 +596,8 @@ function App() {
                 <th>Course Name</th>
                 <th>Publisher</th>
 
-                <th>Courses recognized by this course</th>
-                <th>Courses recognizing this course</th>
+                <th>Recognized</th>
+                <th>Recognized by</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -574,10 +622,10 @@ function App() {
                         sx={{ width: "fit-content", m: 1, height: 30 }}
                         displayEmpty
                         onOpen={(e) => {
-                          getRecognizingCoursesByCourseId(course.id);
+                          getRecognizedCoursesByCourseId(course.id);
                         }}>
                         <MenuItem disabled value={-1}>
-                          Expand to view all courses
+                          Expand to view
                         </MenuItem>
                         <SelectTable emptyPlaceholder="This course has not recognized any course" data={recognizingCourses[Number(course.id)]} header={["ID", "Name"]} secondData={recognizingCourses[Number(course.id)]} />
                       </Select>
@@ -595,10 +643,10 @@ function App() {
                         }}
                         displayEmpty
                         onOpen={(e) => {
-                          getRecognizedCoursesByCourseId(course.id);
+                          getRecognizerCoursesByCourseId(course.id);
                         }}>
                         <MenuItem disabled value={-1}>
-                          Expand to view all courses
+                          Expand to view
                         </MenuItem>
                         <SelectTable emptyPlaceholder="No course recognize this course" data={recognizedCourses[Number(course.id)]} header={["ID", "Name"]} secondData={recognizedCourses[Number(course.id)]} />
                       </Select>
@@ -669,7 +717,7 @@ function App() {
                               <Button
                                 onClick={() => {
                                   approveCourse(selectedCourse.id, course.id).then(() => {
-                                    getRecognizingCoursesByCourseId(selectedCourse.id);
+                                    getRecognizedCoursesByCourseId(selectedCourse.id);
                                   });
 
                                   handlePopoverClose(index.toString());
@@ -694,12 +742,10 @@ function App() {
         <div className="table-container">
           <table>
             <thead>
-              <tr>
-                <th>ID</th>
-                <th>Course Name</th>
-                <th>Publisher</th>
-                <th>Resource</th>
-              </tr>
+              <th>ID</th>
+              <th>Course Name</th>
+              <th>Publisher</th>
+              <th>Resource</th>
             </thead>
             <tbody>
               {recognizingCourses[Number(selectedCourse.id)]?.map((course, index) => (

@@ -47,8 +47,7 @@
 // const HDWalletProvider = require('@truffle/hdwallet-provider');
 
 module.exports = {
-  // place the build files in the client folder
-  contracts_build_directory: "../fe/src/artifacts",
+  contracts_build_directory: "../be/src/contracts",
   /**
    * Networks define how you connect to your ethereum client and let you set the
    * defaults web3 uses to send transactions. If you don't specify one truffle
