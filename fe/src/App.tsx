@@ -354,7 +354,7 @@ function App() {
                           <>
                             <thead>
                               <tr>
-                                {["ID", "Course Name", "Publisher", "Recognized", "Recognized by"].map((title) => (
+                                {["ID", "Course Name", "Recognized", "Recognized by"].map((title) => (
                                   <th key={title} className="subtable-th">
                                     {title}
                                   </th>
@@ -370,7 +370,6 @@ function App() {
                                     {course.courseName}
                                   </Link>
                                 </td>
-                                <td> {course.owner}</td>
 
                                 <td>
                                   <Select
