@@ -12,17 +12,17 @@ contract CourseRegistry {
         oracleAddress = _oracleAddress;
     }
 
+    // define events
     event CheckDuplicateApproveEvent(uint courseId, uint courseIdToRecognize);
+    event CheckApproveFnTimeoutEvent();
+    event ApproveCourseSuccessEvent(uint courseId, uint courseIdToRecognize);
     event CourseRegisterEvent(
         uint courseId,
         address owner,
         string courseName,
         string courseFileHash
     );
-
-    event CheckApproveFnTimeoutEvent();
-    event ApproveCourseSuccessEvent(uint courseId, uint courseIdToRecognize);
-
+    // define structs
     struct Course {
         uint id;
         address owner;
@@ -36,6 +36,7 @@ contract CourseRegistry {
     }
     //all courses list
     Course[] public courses;
+
     //store the current recognizing course id and the course id to recognize
     RecognizingDto currRecognizing;
     //if in recognizing process, lock the approve function in case of reentrancy
@@ -44,11 +45,7 @@ contract CourseRegistry {
     function registerCourse(
         string calldata courseName,
         string calldata courseFileHash
-    ) external returns (Course memory) {
-        bool isRegistered = institutionRegistry.isInstitutionRegistered(
-            msg.sender
-        );
-        require(isRegistered, "___Institution not registered___");
+    ) external onlyRegisteredInstitution returns (Course memory) {
         require(
             bytes(courseName).length != 0 && bytes(courseFileHash).length != 0,
             "___Invalid Paramaters___"
@@ -62,6 +59,7 @@ contract CourseRegistry {
             new uint[](0)
         );
         courses.push(newCourse);
+        //inform the server to add the course to the database
         emit CourseRegisterEvent(
             newCourse.id,
             newCourse.owner,
@@ -71,17 +69,15 @@ contract CourseRegistry {
         return newCourse;
     }
 
-    function approveCourse(uint courseId, uint courseIdToRecognize) external {
-        bool isRegistered = institutionRegistry.isInstitutionRegistered(
-            msg.sender
-        );
-        require(isRegistered, "___Institution not registered___");
-        //need this course belongs to this institution
-        require(
-            courses[courseId].owner == msg.sender,
-            "___Not course owner___"
-        );
-        require(!isInUse, "___In process___");
+    function approveCourse(
+        uint courseId,
+        uint courseIdToRecognize
+    )
+        external
+        onlyRegisteredInstitution
+        onlyCourseOwner(courseId)
+        onlyNotInuse
+    {
         //lock the function
         isInUse = true;
         //store the course id and the course id to recognize
@@ -92,12 +88,13 @@ contract CourseRegistry {
         emit CheckApproveFnTimeoutEvent();
     }
 
-    function deliverResultIsDuplicate(bool isDuplicate) external {
-        require(msg.sender == oracleAddress, "___Only oracle can call___");
-        require(isInUse, "___Not in process___");
-        if (isDuplicate) {
-            isInUse = false;
-        } else {
+    //oracle calls this function to inform the contract the validation result
+    //if timeout, the oracle will call this function with isDuplicate = true
+    function deliverResultIsDuplicate(
+        bool isDuplicate
+    ) external onlyOracle onlyInuse {
+        //if not duplicate, add the course id to the recognizing course's recognizingCourses array
+        if (!isDuplicate) {
             //if not duplicate, add the course id to the recognizing course's recognizingCourses array
             courses[currRecognizing.courseId].recognizingCourses.push(
                 currRecognizing.courseIdToRecognize
@@ -108,16 +105,8 @@ contract CourseRegistry {
                 currRecognizing.courseId,
                 currRecognizing.courseIdToRecognize
             );
-
-            isInUse = false;
         }
-    }
-
-    //if timeout, oracle will call this function to unlock the approve function
-    function timeoutApproveProcess() public {
-        require(msg.sender == oracleAddress, "___Only oracle can call___");
-        require(isInUse, "___Not in process___");
-        //if timeout, unlock the function
+        //unlock the function
         isInUse = false;
     }
 
@@ -127,6 +116,7 @@ contract CourseRegistry {
     ) public view returns (Course[] memory) {
         require(from >= 0 && to >= from, "___Invalid Paramaters___");
         uint amount = to - from;
+
         //if amount is greater than the length of the array, return the whole array
         if (amount > courses.length) {
             amount = courses.length;
@@ -138,5 +128,35 @@ contract CourseRegistry {
             _courses[i] = courses[from + i];
         }
         return _courses;
+    }
+
+    //modifiers
+    modifier onlyRegisteredInstitution() {
+        require(
+            institutionRegistry.isInstitutionRegistered(msg.sender),
+            "___Institution not registered___"
+        );
+        _;
+    }
+    modifier onlyCourseOwner(uint courseId) {
+        require(
+            courses[courseId].owner == msg.sender,
+            "___Not course owner___"
+        );
+        _;
+    }
+
+    modifier onlyOracle() {
+        require(msg.sender == oracleAddress, "___Only oracle can call___");
+        _;
+    }
+
+    modifier onlyInuse() {
+        require(isInUse, "___Not In process___");
+        _;
+    }
+    modifier onlyNotInuse() {
+        require(!isInUse, "___In process___");
+        _;
     }
 }

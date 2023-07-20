@@ -55,3 +55,7 @@
 - run `npm install` to install the dependencies
 - run `npm start` to start the app
 - the app should open in your browser at `http://localhost:3000`
+
+### notice
+
+- remember to delete the `database.sqlite` file in the `be` directory when you redeploy the smart contracts

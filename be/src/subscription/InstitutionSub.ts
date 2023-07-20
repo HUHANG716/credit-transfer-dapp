@@ -1,6 +1,6 @@
 import institutionRegistryArtifact from "../contracts/InstitutionRegistry.json";
 import web3 from "../config/Web3";
-const institutionRegistryContract = new web3.eth.Contract((institutionRegistryArtifact as any).abi, (institutionRegistryArtifact as any).networks["5777"].address);
+
 export const subscribeInstitutionRegisterEvent = async (addIns) => {
   const jsonInterfaceInstitutionRegisterEvent = [
     { type: "address", name: "institutionAddress" },

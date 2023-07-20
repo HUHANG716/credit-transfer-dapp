@@ -12,12 +12,9 @@ contract InstitutionRegistry {
     // Array to store all the registered institutions
     Institution[] public registeredInstitutionList;
 
-    function registerInstitution(string calldata name) public {
-        // Check if the institution is already registered
-        require(
-            !isInstitutionRegistered[msg.sender],
-            "___Institution is already registered___"
-        );
+    function registerInstitution(
+        string calldata name
+    ) external onlyUnregisteredInstitution {
         // Add the institution to the mapping and add the address to the array
         isInstitutionRegistered[msg.sender] = true;
         Institution memory newInstitution = Institution(msg.sender, name);
@@ -42,5 +39,13 @@ contract InstitutionRegistry {
             institutions[i] = registeredInstitutionList[from + i];
         }
         return institutions;
+    }
+
+    modifier onlyUnregisteredInstitution() {
+        require(
+            !isInstitutionRegistered[msg.sender],
+            "___Institution  is already registered___"
+        );
+        _;
     }
 }
