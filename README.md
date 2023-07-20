@@ -41,14 +41,13 @@
 - copy the gateway url and paste it into the `.env` file
   the format is like: `https://xxx.infura-ipfs.io/ipfs`
 
-### install and start backend dependencies
+### install backend dependencies and start 
 
 - `cd` into the `be` directory
 - set the private key of the account you choose as an oracle for `ORACLE_PRIVATE_KEY` in the `.env` file
 - run `npm install` to install the dependencies
 - run `npm start` to start the backend server
 - the server will start on port `3001`
-
 
 ### install frontend dependencies and start the app
 
