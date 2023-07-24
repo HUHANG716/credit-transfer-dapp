@@ -9,6 +9,7 @@
 ### truffle
 
 - `npm install -g truffle`
+- `truffle test` to test
 
 ### ganache
 
@@ -32,7 +33,7 @@
 
 ### deploy the smart contracts
 
-- `cd` into the `smart-contracts` directory
+- `cd` into the `contracts` directory
 - open `oracle.config.js` and set the public key of an account for `oracle_addr`
 - run `npm run migrate` and wait for the contracts to be deployed on the ganache network
 - you will see contract artifact files in the `fe/src/contracts` directory and `be/src/contracts` after the migration is complete

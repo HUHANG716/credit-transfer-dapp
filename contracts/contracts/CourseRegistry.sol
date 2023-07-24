@@ -12,16 +12,6 @@ contract CourseRegistry {
         oracleAddress = _oracleAddress;
     }
 
-    // define events
-    event CheckDuplicateApproveEvent(uint courseId, uint courseIdToRecognize);
-    event CheckApproveFnTimeoutEvent();
-    event ApproveCourseSuccessEvent(uint courseId, uint courseIdToRecognize);
-    event CourseRegisterEvent(
-        uint courseId,
-        address owner,
-        string courseName,
-        string courseFileHash
-    );
     // define structs
     struct Course {
         uint id;
@@ -34,13 +24,25 @@ contract CourseRegistry {
         uint courseId;
         uint courseIdToRecognize;
     }
+
     //all courses list
     Course[] public courses;
 
     //store the current recognizing course id and the course id to recognize
-    RecognizingDto currRecognizing;
+    RecognizingDto public currRecognizing;
     //if in recognizing process, lock the approve function in case of reentrancy
-    bool isInUse = false;
+    bool public isInUse = false;
+
+    // define events
+    event CheckDuplicateApproveEvent(uint courseId, uint courseIdToRecognize);
+    event CheckApproveFnTimeoutEvent();
+    event ApproveCourseSuccessEvent(uint courseId, uint courseIdToRecognize);
+    event CourseRegisterEvent(
+        uint courseId,
+        address owner,
+        string courseName,
+        string courseFileHash
+    );
 
     function registerCourse(
         string calldata courseName,
@@ -48,7 +50,7 @@ contract CourseRegistry {
     ) external onlyRegisteredInstitution returns (Course memory) {
         require(
             bytes(courseName).length != 0 && bytes(courseFileHash).length != 0,
-            "___Invalid Paramaters___"
+            "___Invalid parameters___"
         );
 
         Course memory newCourse = Course(
@@ -69,7 +71,7 @@ contract CourseRegistry {
         return newCourse;
     }
 
-    function approveCourse(
+    function recognize(
         uint courseId,
         uint courseIdToRecognize
     )
@@ -114,7 +116,7 @@ contract CourseRegistry {
         uint from,
         uint to
     ) public view returns (Course[] memory) {
-        require(from >= 0 && to >= from, "___Invalid Paramaters___");
+        require(from >= 0 && to >= from, "___Invalid paramaters___");
         uint amount = to - from;
 
         //if amount is greater than the length of the array, return the whole array
@@ -128,6 +130,12 @@ contract CourseRegistry {
             _courses[i] = courses[from + i];
         }
         return _courses;
+    }
+
+    function getRecognizingCourses(
+        uint courseId
+    ) public view returns (uint[] memory) {
+        return courses[courseId].recognizingCourses;
     }
 
     //modifiers

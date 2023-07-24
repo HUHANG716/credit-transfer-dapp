@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 contract InstitutionRegistry {
     // Mapping to check if an institution is registered
     mapping(address => bool) public isInstitutionRegistered;
+
     event InstitutionRegisterEvent(address institutionAddress, string name);
     struct Institution {
         address institutionAddress;
@@ -15,6 +16,7 @@ contract InstitutionRegistry {
     function registerInstitution(
         string calldata name
     ) external onlyUnregisteredInstitution {
+        require(bytes(name).length != 0, "___Invalid parameters___");
         // Add the institution to the mapping and add the address to the array
         isInstitutionRegistered[msg.sender] = true;
         Institution memory newInstitution = Institution(msg.sender, name);
@@ -23,11 +25,11 @@ contract InstitutionRegistry {
         emit InstitutionRegisterEvent(msg.sender, name);
     }
 
-    function getAllInstitutions(
+    function getInstitutions(
         uint from,
         uint to
     ) external view returns (Institution[] memory) {
-        require(from >= 0 && to > from, "___Invalid Paramaters___");
+        require(from >= 0 && to > from, "___Invalid parameters___");
         uint amount = to - from;
         //if amount is greater than the length of the array, return the whole array
         if (amount > registeredInstitutionList.length) {
@@ -44,7 +46,7 @@ contract InstitutionRegistry {
     modifier onlyUnregisteredInstitution() {
         require(
             !isInstitutionRegistered[msg.sender],
-            "___Institution  is already registered___"
+            "___Institution is already registered___"
         );
         _;
     }

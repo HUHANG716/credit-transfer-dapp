@@ -1,4 +1,4 @@
-import { Context, Request } from "koa";
+import { Context } from "koa";
 
 import { institutionService } from "../service/InstitutionService";
 

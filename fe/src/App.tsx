@@ -187,7 +187,7 @@ function App() {
 
   const approveCourse = async (recognizingCourseId: number, recognizedCourseId: number) => {
     try {
-      await courseRegistryContract.current.methods.approveCourse(recognizingCourseId, recognizedCourseId).send({
+      await courseRegistryContract.current.methods.recognize(recognizingCourseId, recognizedCourseId).send({
         from: currAccount,
       });
       success("Course recognizing request sent!");

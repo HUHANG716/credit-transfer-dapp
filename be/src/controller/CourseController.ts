@@ -1,7 +1,5 @@
-import { Context, Request } from "koa";
+import { Context } from "koa";
 import { courseService } from "../service/CourseService";
-import Joi from "joi";
-import { Course } from "../entity/Course";
 
 class CourseController {
   getCourses = async (ctx: Context) => {
@@ -12,7 +10,6 @@ class CourseController {
     try {
       if (from !== undefined && to !== undefined) {
         ctx.body = await courseService.getCourses(from, to);
-
       } else if (institutionAddr !== undefined) {
         ctx.body = await courseService.getCoursesByInstitutionAddr(institutionAddr as string);
       } else if (recognizer !== undefined) {

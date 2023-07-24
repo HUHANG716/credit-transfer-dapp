@@ -15,10 +15,6 @@ export class Course {
   @Column() // New column for Institution's primary key
   owner: string;
 
-  @ManyToOne(() => Institution, (institution) => institution.courses)
-  @JoinColumn({ name: "ownerId" }) // Map the relation to ownerId column
-  ownerInstitution: Institution;
-
   @ManyToMany(() => Course, (courses) => courses.recognized)
   @JoinTable({
     name: "recognizers_recognized",
